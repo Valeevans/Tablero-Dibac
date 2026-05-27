@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero SGC — DIBAC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface2: #f0efe9;
+  --border: #e4e2d8;
+  --text: #18181b;
+  --text2: #52525b;
+  --text3: #a1a1aa;
+  --sidebar-w: 230px;
+  --accent: #1a56db;
+  --accent-light: #eff6ff;
+  --green: #16a34a; --green-bg: #f0fdf4; --green-mid: #86efac;
+  --red: #dc2626; --red-bg: #fef2f2;
+  --amber: #d97706; --amber-bg: #fffbeb;
+  --blue: #2563eb; --blue-bg: #eff6ff;
+  --radius: 10px; --radius-lg: 14px;
+  --shadow: 0 1px 4px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.04);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── LAYOUT ── */
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: var(--sidebar-w); background: var(--text); color: #fff;
+  display: flex; flex-direction: column; position: fixed;
+  height: 100vh; overflow-y: auto; z-index: 100; flex-shrink: 0;
+}
+.main { margin-left: var(--sidebar-w); flex: 1; padding: 32px 36px; min-height: 100vh; }
+
+/* ── SIDEBAR ── */
+.sb-header {
+  padding: 24px 20px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.sb-logo { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -.5px; }
+.sb-sub { font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.4); margin-top: 2px; }
+.sb-year {
+  margin: 14px 20px 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,.1); border-radius: 6px;
+  padding: 5px 10px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,.7);
+}
+.sb-nav { padding: 16px 12px; flex: 1; }
+.sb-section { font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.3); padding: 0 8px; margin: 14px 0 6px; }
+.nav-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 10px; border-radius: 8px;
+  border: none; background: none; font-family: 'Inter', sans-serif;
+  font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.6);
+  cursor: pointer; text-align: left; transition: all .15s; margin-bottom: 1px;
+}
+.nav-btn svg { flex-shrink: 0; opacity: .6; }
+.nav-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+.nav-btn:hover svg { opacity: 1; }
+.nav-btn.active { background: rgba(255,255,255,.15); color: #fff; font-weight: 600; }
+.nav-btn.active svg { opacity: 1; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-left: auto; }
+
+/* ── PAGE ── */
+.page { display: none; }
+.page.active { display: block; }
+.page-header { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; }
+.page-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700; }
+.page-tag {
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  padding: 4px 11px; border-radius: 99px; background: var(--surface2); color: var(--text3);
+  border: 1px solid var(--border);
+}
+.spacer { flex: 1; }
+
+/* ── METRIC CARDS ── */
+.metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+.metric-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.metric-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+.metric-val { font-family: 'Syne', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; }
+.metric-val.green { color: var(--green); }
+.metric-val.red { color: var(--red); }
+.metric-val.amber { color: var(--amber); }
+.metric-val.muted { color: var(--text3); }
+.metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* ── SEMÁFORO BADGE ── */
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.badge.ok { background: var(--green-bg); color: var(--green); }
+.badge.ok::before { background: var(--green); }
+.badge.fail { background: var(--red-bg); color: var(--red); }
+.badge.fail::before { background: var(--red); }
+.badge.warn { background: var(--amber-bg); color: var(--amber); }
+.badge.warn::before { background: var(--amber); }
+.badge.neutral { background: var(--surface2); color: var(--text3); }
+.badge.neutral::before { background: var(--text3); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 22px 24px;
+  box-shadow: var(--shadow); margin-bottom: 18px;
+}
+.card-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.card-title .ct-sub { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 400; color: var(--text3); }
+
+/* ── IND CARDS GRID ── */
+.ind-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.ind-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.ind-process { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+.ind-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.ind-meta { font-size: 11px; color: var(--text3); margin-bottom: 12px; }
+.month-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 14px; }
+.mc { border-radius: 6px; padding: 6px 3px; text-align: center; background: var(--surface2); }
+.mc .mn { font-size: 8px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); }
+.mc .mv { font-size: 11px; font-weight: 600; margin-top: 2px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.mc.ok { background: var(--green-bg); }
+.mc.ok .mn, .mc.ok .mv { color: var(--green); }
+.mc.fail { background: var(--red-bg); }
+.mc.fail .mn, .mc.fail .mv { color: var(--red); }
+.mc.empty .mv { color: var(--border); }
+.chart-wrap { position: relative; height: 110px; }
+.ind-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+
+/* ── TABLE ── */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { text-align: left; padding: 11px 14px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); border-bottom: 1px solid var(--border); background: var(--surface2); }
+.data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface2); }
+
+/* ── FORM ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.form-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text2); }
+input, select, textarea {
+  font-family: 'Inter', sans-serif; font-size: 13px;
+  padding: 9px 11px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface);
+  color: var(--text); width: 100%; transition: border .15s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+input[readonly] { background: var(--surface2); color: var(--text3); }
+textarea { resize: vertical; min-height: 60px; }
+
+/* ── BUTTONS ── */
+.btn {
+  font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 500;
+  padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border);
+  cursor: pointer; background: var(--surface); color: var(--text);
+  transition: all .15s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { background: var(--surface2); }
+.btn-primary { background: var(--text); color: #fff; border-color: var(--text); }
+.btn-primary:hover { opacity: .85; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+/* ── PROGRESS ── */
+.pbar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.pfill { height: 100%; border-radius: 3px; background: var(--green); transition: width .4s; }
+
+/* ── OBJ STATUS CHIP ── */
+.chip { display: inline-flex; padding: 2px 9px; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; font-size: 11px; font-weight: 500; color: var(--text2); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--text); color: #fff;
+  padding: 10px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500;
+  opacity: 0; transform: translateY(8px); transition: all .3s; z-index: 9999; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* ── PROCESS HEADER ── */
+.proc-header {
+  background: linear-gradient(135deg, var(--text) 0%, #3f3f46 100%);
+  color: #fff; border-radius: var(--radius-lg); padding: 20px 24px;
+  margin-bottom: 22px; display: flex; align-items: center; gap: 16px;
+}
+.proc-icon { font-size: 28px; }
+.proc-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; }
+.proc-desc { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 2px; }
+
+/* ── CARGA FORM ── */
+.carga-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow); margin-bottom: 18px; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .metric-row { grid-template-columns: repeat(2,1fr); }
+  .ind-grid { grid-template-columns: 1fr; }
+  .form-grid-4 { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sb-header">
+    <div class="sb-logo">DIBAC</div>
+    <div class="sb-sub">Tablero SGC · ISO 15189</div>
+    <div class="sb-year">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      2026
+    </div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-section">Procesos</div>
+    <button class="nav-btn active" onclick="showPage('preana',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+      Preanalítico
+      <span class="nav-dot" id="dot-preana"></span>
+    </button>
+    <button class="nav-btn" onclick="showPage('anali',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      Analítico
+      <span class="nav-dot" id="dot-anali"></span>
+    </button>
+    <button class="nav-btn" onclick="showPage('posana',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Posanalítico
+      <span class="nav-dot" id="dot-posana"></span>
+    </button>
+    <div class="sb-section">Soporte</div>
+    <button class="nav-btn" onclick="showPage('rrhh',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      RRHH
+      <span class="nav-dot" id="dot-rrhh"></span>
+    </button>
+    <button class="nav-btn" onclick="showPage('sgc',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      SGC
+      <span class="nav-dot" id="dot-sgc"></span>
+    </button>
+    <button class="nav-btn" onclick="showPage('compras',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Compras
+      <span class="nav-dot" id="dot-compras"></span>
+    </button>
+    <button class="nav-btn" onclick="showPage('satisf',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      Satisfacción
+      <span class="nav-dot" id="dot-satisf"></span>
+    </button>
+    <div class="sb-section">Gestión</div>
+    <button class="nav-btn" onclick="showPage('obj',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      Objetivos 2026
+    </button>
+    <button class="nav-btn" onclick="showPage('carga',this)">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      Cargar datos
+    </button>
+  </nav>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+
+<!-- ══ PREANALÍTICO ══ -->
+<div id="page-preana" class="page active">
+  <div class="proc-header">
+    <div class="proc-icon">🔬</div>
+    <div>
+      <div class="proc-title">Preanalítico</div>
+      <div class="proc-desc">Ingreso de pacientes · Toma de muestras · Identificación</div>
+    </div>
+  </div>
+  <div class="metric-row" id="met-preana"></div>
+  <div class="ind-grid" id="ind-preana"></div>
+</div>
+
+<!-- ══ ANALÍTICO ══ -->
+<div id="page-anali" class="page">
+  <div class="proc-header" style="background: linear-gradient(135deg,#1e3a5f,#2563eb)">
+    <div class="proc-icon">⚗️</div>
+    <div>
+      <div class="proc-title">Analítico</div>
+      <div class="proc-desc">Control de calidad · Procesamiento · Equipamiento</div>
+    </div>
+  </div>
+  <div class="metric-row" id="met-anali"></div>
+  <div class="ind-grid" id="ind-anali"></div>
+</div>
+
+<!-- ══ POSANALÍTICO ══ -->
+<div id="page-posana" class="page">
+  <div class="proc-header" style="background: linear-gradient(135deg,#14532d,#16a34a)">
+    <div class="proc-icon">📋</div>
+    <div>
+      <div class="proc-title">Posanalítico</div>
+      <div class="proc-desc">Validación · Entrega de resultados · Informes</div>
+    </div>
+  </div>
+  <div class="metric-row" id="met-posana"></div>
+  <div class="ind-grid" id="ind-posana"></div>
+</div>
+
+<!-- ══ RRHH ══ -->
+<div id="page-rrhh" class="page">
+  <div class="proc-header" style="background: linear-gradient(135deg,#7c2d12,#ea580c)">
+    <div class="proc-icon">👥</div>
+    <div>
+      <div class="proc-title">RRHH</div>
+      <div class="proc-desc">Desempeño del personal · Capacitación</div>
+    </div>
+  </div>
+  <div class="metric-row" id="met-rrhh"></div>
+  <div class="ind-grid" id="ind-rrhh"></div>
+</div>
+
+<!-- ══ SGC ══ -->
+<div id="page-sgc" class="page">
+  <div class="proc-header" style="background: linear-gradient(135deg,#312e81,#6366f1)">
+    <div class="proc-icon">📐</div>
+    <div>
+      <div class="proc-title">SGC</div>
+      <div class="proc-desc">No conformidades · Acciones correctivas · Auditorías</div>
+    </div>
+  </div>
+  <div class="metric-row" id="met-sgc"></div>
+  <div class="ind-grid" id="ind-sgc"></div>
+</div>
+
+<!-- ══ COMPRAS ══ -->
+<div id="page-compras" class="page">
+  <div class="proc-header" style="background: linear-gradient(135deg,#713f12,#ca8a04)">
+    <div class="proc-icon">📦</div>
+    <div>
+      <div class="proc-title">Compras</div>
+      <div class="proc-desc">Stock e insumos críticos · Proveedores</div>
+    </div>
+  </div>
+  <div class="metric-row" id="met-compras"></div>
+  <div class="ind-grid" id="ind-compras"></div>
+</div>
+
+<!-- ══ SATISFACCIÓN ══ -->
+<div id="page-satisf" class="page">
+  <div class="proc-header" style="background: linear-gradient(135deg,#4a044e,#a21caf)">
+    <div class="proc-icon">⭐</div>
+    <div>
+      <div class="proc-title">Satisfacción del Cliente</div>
+      <div class="proc-desc">Percepción · Encuestas · NPS</div>
+    </div>
+  </div>
+  <div class="metric-row" id="met-satisf"></div>
+  <div class="ind-grid" id="ind-satisf"></div>
+</div>
+
+<!-- ══ OBJETIVOS ══ -->
+<div id="page-obj" class="page">
+  <div class="page-header">
+    <div class="page-title">Objetivos de Calidad 2026</div>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" onclick="abrirModalObj()">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nuevo objetivo
+    </button>
+  </div>
+  <div class="metric-row" id="met-obj"></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Proceso</th><th>Objetivo</th><th>Responsable</th><th>Plazo</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tbody-obj"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ CARGA ══ -->
+<div id="page-carga" class="page">
+  <div class="page-header">
+    <div class="page-title">Cargar datos</div>
+    <span class="page-tag">2026</span>
+  </div>
+  <div class="carga-card">
+    <div class="card-title">Registrar resultado mensual</div>
+    <div class="form-grid form-grid-4" style="margin-bottom:12px">
+      <div class="form-group"><label>Indicador</label>
+        <select id="sel-ind" onchange="autoMeta()"><option value="">— Seleccionar —</option></select>
+      </div>
+      <div class="form-group"><label>Mes</label>
+        <select id="sel-mes">
+          <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+          <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+          <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+          <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Valor</label>
+        <input type="number" id="val-res" placeholder="Ej: 0.0075" step="any">
+      </div>
+      <div class="form-group"><label>Meta (ref.)</label>
+        <input type="text" id="val-meta-ref" readonly>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px"><label>Observaciones</label>
+      <input type="text" id="val-obs" placeholder="Opcional">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="guardarRes()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Guardar
+      </button>
+      <button class="btn" onclick="limpiarCarga()">Limpiar</button>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">Historial</div>
+    <div class="spacer"></div>
+    <select id="hist-filter" style="width:200px" onchange="renderHistorial()"><option value="">Todos</option></select>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Indicador</th><th>Mes</th><th>Valor</th><th>Estado</th><th>Obs</th><th></th></tr></thead>
+      <tbody id="tbody-hist"></tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+</div><!-- /shell -->
+
+<!-- ══ MODAL OBJ ══ -->
+<div id="modal-obj-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(2px)" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#fff;border-radius:14px;padding:28px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:18px" id="modal-obj-title">Nuevo objetivo</div>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div class="form-group"><label>Proceso</label>
+        <select id="m-obj-proc">
+          <option>PREANALÍTICO</option><option>ANALÍTICO</option><option>POSANALÍTICO</option>
+          <option>RRHH Y FACTURACIÓN</option><option>OTRAS</option><option>SATISFACCIÓN</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Responsable</label><input type="text" id="m-obj-resp" placeholder="Ej: Dirección"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px"><label>Objetivo</label>
+      <textarea id="m-obj-nombre" placeholder="Descripción del objetivo"></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:12px"><label>Acciones</label>
+      <input type="text" id="m-obj-acc">
+    </div>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div class="form-group"><label>Plazo inicio</label><input type="text" id="m-obj-ini" placeholder="Ej: Enero 2026"></div>
+      <div class="form-group"><label>Plazo fin</label><input type="text" id="m-obj-fin" placeholder="Ej: Junio 2026"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:18px"><label>Estado</label>
+      <select id="m-obj-estado">
+        <option value="en proceso">En proceso</option>
+        <option value="cumplido">Cumplido</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="no iniciado">No iniciado</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="document.getElementById('modal-obj-bg').style.display='none'">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarObj()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast"></div>
+
+<script>
+const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const SK='dibac_sgc_v1';
+let activeCharts=[], editObjId=null;
+
+// ── SEED DATA ────────────────────────────────────────────────
+const SEED_IND=[
+  {id:1,proceso:'PREANALÍTICO',nombre:'Error de ingreso',calculo:'% errores en ingreso de prácticas o datos del paciente / total de ingresos',meta:'Menor del 3%',metaNum:0.03,tipo:'menor',freq:'MENSUAL'},
+  {id:2,proceso:'PREANALÍTICO',nombre:'Recitación por error interno',calculo:'% error en la toma de muestra / total de ingresos',meta:'Menor del 1%',metaNum:0.01,tipo:'menor',freq:'MENSUAL'},
+  {id:3,proceso:'ANALÍTICO',nombre:'% de aceptación de CCE',calculo:'% de aceptación de control externo de calidad / total prácticas bajo CCE',meta:'Mayor del 90%',metaNum:0.90,tipo:'mayor',freq:'MENSUAL'},
+  {id:4,proceso:'POSANALÍTICO',nombre:'Informes demorados',calculo:'% de informes demorados en entrega / total de informes',meta:'Menor del 3%',metaNum:0.03,tipo:'menor',freq:'MENSUAL'},
+  {id:5,proceso:'POSANALÍTICO',nombre:'Error de validación',calculo:'% errores de validación / total de informes',meta:'Menor del 1%',metaNum:0.01,tipo:'menor',freq:'MENSUAL'},
+  {id:6,proceso:'POSANALÍTICO',nombre:'% de análisis retirados impresos',calculo:'% informes retirados impresos / total de informes',meta:'Menor del 60%',metaNum:0.60,tipo:'menor',freq:'MENSUAL'},
+  {id:7,proceso:'SATISFACCIÓN',nombre:'Percepción del cliente',calculo:'Calificación general del servicio. Encuesta.',meta:'Mayor 4,6',metaNum:4.6,tipo:'mayor',freq:'MENSUAL'},
+  {id:8,proceso:'RRHH',nombre:'Desempeño del personal',calculo:'Crecimiento en desempeño personal',meta:'Mayor a 2%',metaNum:0.02,tipo:'mayor',freq:'ANUAL'},
+  {id:9,proceso:'SGC',nombre:'Eficacia de las acciones correctivas',calculo:'Total de NC eficaces / NC totales',meta:'≥ 0.6',metaNum:0.6,tipo:'mayor',freq:'SEMESTRAL'},
+  {id:10,proceso:'COMPRAS',nombre:'Faltantes de stock e insumos críticos',calculo:'Derivaciones por falta de insumos',meta:'Menor de 1%',metaNum:0.01,tipo:'menor',freq:'MENSUAL'}
+];
+const SEED_RES={
+  1:[0.0084,0.0066,0.0097,0.0069,null,null,null,null,null,null,null,null],
+  2:[0,0,0.001,0.0011,null,null,null,null,null,null,null,null],
+  3:[0.962,0.975,0.985,0.96,null,null,null,null,null,null,null,null],
+  4:[0.001,0,0.0007,0.0003,null,null,null,null,null,null,null,null],
+  5:[0,0,0,0,null,null,null,null,null,null,null,null],
+  7:[5,4.83,4.93,4.88,null,null,null,null,null,null,null,null],
+  10:[null,2,3,4,null,null,null,null,null,null,null,null]
+};
+const SEED_OBS={10:{1:'Se derivó TRA y PCR por falta de insumos',2:'FOG por falta de insumos',3:'FSH por corto vencimiento'}};
+const SEED_OBJ=[
+  {id:1,proceso:'PREANALÍTICO',nombre:'Reorganización de la sala de espera.',acciones:'Modificación de espacio',responsable:'Dirección',inicio:'Febrero 2025',fin:'Marzo 2026',estado:'cumplido'},
+  {id:2,proceso:'ANALÍTICO',nombre:'Incorporación de nuevos analíticos (Testosterona, Troponina, BNP, DHEAs, T3l)',acciones:'Estadísticas de consumo. Averiguación de equipamientos',responsable:'Bioquímicas Jefas de sección',inicio:'2025',fin:'2026',estado:'cumplido'},
+  {id:3,proceso:'ANALÍTICO',nombre:'Incorporación de equipo automatizado de orinas',acciones:'',responsable:'Dirección',inicio:'Feb 2026',fin:'',estado:'cumplido'},
+  {id:4,proceso:'POSANALÍTICO',nombre:'Seguir impulsando el envío de resultados vía WhatsApp y mail',acciones:'Estadística de resultados retirados impresos',responsable:'Dirección',inicio:'2025',fin:'2026',estado:'en proceso'},
+  {id:5,proceso:'RRHH Y FACTURACIÓN',nombre:'Incorporación de nuevo personal de secretaría y Bioquímica área Bacteriología',acciones:'Búsqueda de nuevo personal',responsable:'Dirección',inicio:'Ene 2026',fin:'',estado:'cumplido'},
+  {id:6,proceso:'OTRAS',nombre:'Modificación de laboratorio central (pintura, mobiliario)',acciones:'Pintura de pisos y paredes. Nuevo mobiliario',responsable:'Dirección',inicio:'Enero 2026',fin:'Junio 2026',estado:'en proceso'},
+  {id:7,proceso:'SATISFACCIÓN',nombre:'Incorporar propaganda de nuevo equipamiento a encuestas de médicos y derivantes',acciones:'Crear encuesta de satisfacción para derivantes y médicos',responsable:'RSGC',inicio:'Mayo 2026',fin:'Junio 2026',estado:'en proceso'}
+];
+
+// ── STORAGE ──────────────────────────────────────────────────
+let _mem={};
+let _storageOk=false;
+(function(){try{localStorage.setItem('__t','1');localStorage.removeItem('__t');_storageOk=true;}catch(e){}})();
+function sSet(k,v){if(_storageOk)try{localStorage.setItem(k,v);}catch(e){_mem[k]=v;}else _mem[k]=v;}
+function sGet(k){if(_storageOk)try{return localStorage.getItem(k);}catch(e){return _mem[k]||null;}return _mem[k]||null;}
+
+let DB=null;
+function buildSeed(){
+  const res={};SEED_IND.forEach(i=>{res[i.id]=SEED_RES[i.id]?[...SEED_RES[i.id]]:Array(12).fill(null);});
+  const obs={};Object.entries(SEED_OBS).forEach(([id,m])=>{obs[id]={...m};});
+  return{indicadores:SEED_IND.map(i=>({...i})),objetivos:SEED_OBJ.map(o=>({...o})),resultados:res,obs,meta:{nextObjId:8}};
+}
+function save(){try{sSet(SK,JSON.stringify(DB));}catch(e){}}
+function load(){
+  try{const r=sGet(SK);if(r){const p=JSON.parse(r);if(p&&p.indicadores){DB=p;return;}}}catch(e){}
+  DB=buildSeed();save();
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function cumple(ind,val){
+  if(val===null||val===undefined||val==='')return null;
+  const v=parseFloat(val);if(isNaN(v))return null;
+  if(ind.tipo==='menor')return v<=ind.metaNum;
+  if(ind.tipo==='mayor')return v>=ind.metaNum;
+  return Math.abs(v-ind.metaNum)<0.0001;
+}
+function fmtVal(v,ind){
+  if(v===null||v===undefined)return '—';
+  const n=parseFloat(v);if(isNaN(n))return String(v);
+  if(ind.metaNum>=1)return n.toFixed(2);
+  if(n!==0&&Math.abs(n)<1)return(n*100).toFixed(2)+'%';
+  if(n===0)return '0%';
+  return String(n);
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function destroyCharts(){activeCharts.forEach(c=>{try{c.destroy();}catch(e){}});activeCharts=[];}
+function icnEdit(){return`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;}
+function icnDel(){return`<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;}
+
+// ── NAVIGATION ───────────────────────────────────────────────
+function showPage(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(btn)btn.classList.add('active');
+  destroyCharts();
+  const renders={
+    preana:()=>renderProcess('PREANALÍTICO','preana'),
+    anali:()=>renderProcess('ANALÍTICO','anali'),
+    posana:()=>renderProcess('POSANALÍTICO','posana'),
+    rrhh:()=>renderProcess('RRHH','rrhh'),
+    sgc:()=>renderProcess('SGC','sgc'),
+    compras:()=>renderProcess('COMPRAS','compras'),
+    satisf:()=>renderProcess('SATISFACCIÓN','satisf'),
+    obj:renderObjetivos,
+    carga:renderCarga
+  };
+  if(renders[name])renders[name]();
+}
+
+// ── PROCESS PAGE ─────────────────────────────────────────────
+function renderProcess(proceso,pageId){
+  const inds=DB.indicadores.filter(i=>i.proceso===proceso);
+  // Métricas
+  let ok=0,fail=0,noData=0;
+  inds.forEach(ind=>{
+    const datos=DB.resultados[ind.id]||Array(12).fill(null);
+    const vals=datos.filter(v=>v!==null&&v!==undefined&&v!=='');
+    if(!vals.length){noData++;return;}
+    const c=cumple(ind,vals[vals.length-1]);
+    if(c===true)ok++;else if(c===false)fail++;else noData++;
+  });
+  document.getElementById('met-'+pageId).innerHTML=`
+    <div class="metric-card"><div class="metric-label">Indicadores</div><div class="metric-val">${inds.length}</div></div>
+    <div class="metric-card"><div class="metric-label">Cumplen meta</div><div class="metric-val green">${ok}</div></div>
+    <div class="metric-card"><div class="metric-label">Fuera de meta</div><div class="metric-val red">${fail}</div></div>
+    <div class="metric-card"><div class="metric-label">Sin datos</div><div class="metric-val muted">${noData}</div></div>`;
+  // Cards indicadores
+  const cont=document.getElementById('ind-'+pageId);cont.innerHTML='';
+  if(!inds.length){
+    cont.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3)">Sin indicadores para este proceso.</div>`;
+    return;
+  }
+  inds.forEach(ind=>{
+    const datos=DB.resultados[ind.id]||Array(12).fill(null);
+    const vals=datos.filter(v=>v!==null&&v!==undefined&&v!=='');
+    const last=vals.length?vals[vals.length-1]:null;
+    const estado=cumple(ind,last);
+    const bc=estado===true?'ok':estado===false?'fail':'neutral';
+    const bt=estado===true?'Cumple':estado===false?'Fuera de meta':'Sin datos';
+    const cells=MESES.map((m,i)=>{
+      const v=datos[i];
+      if(v===null||v===undefined||v==='')return`<div class="mc empty"><div class="mn">${m.slice(0,3)}</div><div class="mv">—</div></div>`;
+      const c=cumple(ind,v);
+      return`<div class="mc ${c===true?'ok':c===false?'fail':''}"><div class="mn">${m.slice(0,3)}</div><div class="mv">${fmtVal(v,ind)}</div></div>`;
+    }).join('');
+    const cid='ch-'+ind.id;
+    const card=document.createElement('div');card.className='ind-card';
+    card.innerHTML=`
+      <div class="ind-card-head">
+        <div>
+          <div class="ind-process">${ind.proceso}</div>
+          <div class="ind-name">${ind.nombre}</div>
+          <div class="ind-meta">Meta: ${ind.meta} · ${ind.freq}</div>
+        </div>
+        <span class="badge ${bc}">${bt}</span>
+      </div>
+      <div class="month-grid">${cells}</div>
+      <div class="chart-wrap"><canvas id="${cid}"></canvas></div>`;
+    cont.appendChild(card);
+    setTimeout(()=>{
+      const ctx=document.getElementById(cid);if(!ctx)return;
+      const labels=MESES.filter((_,i)=>datos[i]!==null&&datos[i]!==undefined&&datos[i]!=='').map(m=>m.slice(0,3));
+      const data=datos.filter(v=>v!==null&&v!==undefined&&v!=='').map(v=>parseFloat(v));
+      if(!data.length)return;
+      const colors=data.map(v=>cumple(ind,v)===false?'rgba(220,38,38,.25)':'rgba(22,163,74,.25)');
+      const borders=data.map(v=>cumple(ind,v)===false?'#dc2626':'#16a34a');
+      const ch=new Chart(ctx,{type:'bar',data:{labels,datasets:[
+        {data,backgroundColor:colors,borderColor:borders,borderWidth:1.5,borderRadius:5,maxBarThickness:30},
+        {data:Array(data.length).fill(ind.metaNum),type:'line',borderColor:'rgba(100,116,139,.5)',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}
+      ]},options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtVal(c.raw,ind)}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#a1a1aa'}},
+                y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},color:'#a1a1aa',callback:v=>fmtVal(v,ind)}}}}});
+      activeCharts.push(ch);
+    },60);
+  });
+  // Actualizar dot sidebar
+  updateDots();
+}
+
+function updateDots(){
+  const map={
+    'PREANALÍTICO':'preana','ANALÍTICO':'anali','POSANALÍTICO':'posana',
+    'RRHH':'rrhh','SGC':'sgc','COMPRAS':'compras','SATISFACCIÓN':'satisf'
+  };
+  Object.entries(map).forEach(([proc,id])=>{
+    const dot=document.getElementById('dot-'+id);if(!dot)return;
+    const inds=DB.indicadores.filter(i=>i.proceso===proc);
+    let hasFail=false,hasData=false;
+    inds.forEach(ind=>{
+      const datos=DB.resultados[ind.id]||[];
+      const vals=datos.filter(v=>v!==null&&v!==undefined&&v!=='');
+      if(vals.length){hasData=true;if(cumple(ind,vals[vals.length-1])===false)hasFail=true;}
+    });
+    dot.style.background=hasFail?'#ef4444':hasData?'#22c55e':'transparent';
+  });
+}
+
+// ── OBJETIVOS ────────────────────────────────────────────────
+function renderObjetivos(){
+  const objs=DB.objetivos;
+  const total=objs.length,cum=objs.filter(o=>o.estado==='cumplido').length;
+  const proc=objs.filter(o=>o.estado==='en proceso').length;
+  const pct=total?Math.round(cum/total*100):0;
+  document.getElementById('met-obj').innerHTML=`
+    <div class="metric-card"><div class="metric-label">Total objetivos</div><div class="metric-val">${total}</div></div>
+    <div class="metric-card"><div class="metric-label">Cumplidos</div><div class="metric-val green">${cum}</div></div>
+    <div class="metric-card"><div class="metric-label">En proceso</div><div class="metric-val amber">${proc}</div></div>
+    <div class="metric-card">
+      <div class="metric-label">Avance general</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+        <div class="pbar" style="flex:1"><div class="pfill" style="width:${pct}%"></div></div>
+        <span style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700">${pct}%</span>
+      </div>
+    </div>`;
+  document.getElementById('tbody-obj').innerHTML=objs.map(o=>{
+    const bc=o.estado==='cumplido'?'ok':o.estado==='en proceso'?'warn':'neutral';
+    return`<tr>
+      <td><span class="chip">${o.proceso}</span></td>
+      <td style="max-width:260px;font-size:13px">${o.nombre}</td>
+      <td style="font-size:12px;color:var(--text2)">${o.responsable}</td>
+      <td style="font-size:12px;color:var(--text3);white-space:nowrap">${[o.inicio,o.fin].filter(Boolean).join(' → ')}</td>
+      <td><span class="badge ${bc}">${o.estado}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" style="margin-right:4px" onclick="editarObj(${o.id})">${icnEdit()}</button>
+        <button class="btn btn-sm" style="color:var(--red)" onclick="eliminarObj(${o.id})">${icnDel()}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalObj(){
+  editObjId=null;
+  document.getElementById('modal-obj-title').textContent='Nuevo objetivo';
+  ['m-obj-resp','m-obj-nombre','m-obj-acc','m-obj-ini','m-obj-fin'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-obj-estado').value='no iniciado';
+  document.getElementById('modal-obj-bg').style.display='flex';
+}
+function editarObj(id){
+  editObjId=id;const o=DB.objetivos.find(x=>x.id===id);
+  document.getElementById('modal-obj-title').textContent='Editar objetivo';
+  document.getElementById('m-obj-proc').value=o.proceso;
+  document.getElementById('m-obj-resp').value=o.responsable;
+  document.getElementById('m-obj-nombre').value=o.nombre;
+  document.getElementById('m-obj-acc').value=o.acciones||'';
+  document.getElementById('m-obj-ini').value=o.inicio||'';
+  document.getElementById('m-obj-fin').value=o.fin||'';
+  document.getElementById('m-obj-estado').value=o.estado;
+  document.getElementById('modal-obj-bg').style.display='flex';
+}
+function guardarObj(){
+  const nombre=document.getElementById('m-obj-nombre').value.trim();
+  if(!nombre){alert('Completá el objetivo.');return;}
+  const obj={proceso:document.getElementById('m-obj-proc').value,nombre,acciones:document.getElementById('m-obj-acc').value,responsable:document.getElementById('m-obj-resp').value,inicio:document.getElementById('m-obj-ini').value,fin:document.getElementById('m-obj-fin').value,estado:document.getElementById('m-obj-estado').value};
+  if(editObjId){Object.assign(DB.objetivos.find(x=>x.id===editObjId),obj);}
+  else{obj.id=DB.meta.nextObjId++;DB.objetivos.push(obj);}
+  save();document.getElementById('modal-obj-bg').style.display='none';toast('Objetivo guardado ✓');renderObjetivos();
+}
+function eliminarObj(id){
+  if(!confirm('¿Eliminar este objetivo?'))return;
+  DB.objetivos=DB.objetivos.filter(o=>o.id!==id);save();toast('Eliminado');renderObjetivos();
+}
+
+// ── CARGA ────────────────────────────────────────────────────
+function renderCarga(){
+  const sel=document.getElementById('sel-ind');
+  const hf=document.getElementById('hist-filter');
+  sel.innerHTML='<option value="">— Seleccionar —</option>';
+  hf.innerHTML='<option value="">Todos</option>';
+  DB.indicadores.forEach(i=>{
+    sel.innerHTML+=`<option value="${i.id}">[${i.proceso}] ${i.nombre}</option>`;
+    hf.innerHTML+=`<option value="${i.id}">${i.nombre}</option>`;
+  });
+  renderHistorial();
+}
+function autoMeta(){
+  const id=parseInt(document.getElementById('sel-ind').value);
+  const ind=DB.indicadores.find(i=>i.id===id);
+  document.getElementById('val-meta-ref').value=ind?ind.meta:'';
+}
+function guardarRes(){
+  const id=parseInt(document.getElementById('sel-ind').value);
+  const mes=parseInt(document.getElementById('sel-mes').value);
+  const val=parseFloat(document.getElementById('val-res').value);
+  const obs=document.getElementById('val-obs').value.trim();
+  if(!id||isNaN(val)){alert('Seleccioná un indicador y completá el valor.');return;}
+  if(!DB.resultados[id])DB.resultados[id]=Array(12).fill(null);
+  DB.resultados[id][mes]=val;
+  if(!DB.obs[id])DB.obs[id]={};
+  DB.obs[id][mes]=obs;
+  save();
+  const ind=DB.indicadores.find(i=>i.id===id);
+  toast(`✓ Guardado — ${MESES[mes]} · "${ind.nombre}"`);
+  limpiarCarga();renderHistorial();updateDots();
+}
+function limpiarCarga(){['sel-ind','val-res','val-obs','val-meta-ref'].forEach(id=>document.getElementById(id).value='');}
+function renderHistorial(){
+  const filter=document.getElementById('hist-filter')?.value;
+  const rows=[];
+  DB.indicadores.forEach(ind=>{
+    const datos=DB.resultados[ind.id]||[];
+    datos.forEach((v,i)=>{
+      if(v!==null&&v!==undefined&&v!==''){
+        if(!filter||parseInt(filter)===ind.id){
+          const obs=(DB.obs[ind.id]&&DB.obs[ind.id][i])||'';
+          rows.push({ind,mes:i,val:v,obs});
+        }
+      }
+    });
+  });
+  rows.sort((a,b)=>b.mes-a.mes);
+  document.getElementById('tbody-hist').innerHTML=rows.slice(0,30).map(r=>{
+    const c=cumple(r.ind,r.val);
+    const bc=c===true?'ok':c===false?'fail':'neutral';
+    const bl=c===true?'Cumple':c===false?'Fuera de meta':'—';
+    return`<tr>
+      <td><span style="font-size:10px;color:var(--text3)">${r.ind.proceso}</span><br><span style="font-size:12px">${r.ind.nombre}</span></td>
+      <td>${MESES[r.mes]}</td>
+      <td style="font-family:monospace;font-size:12px">${fmtVal(r.val,r.ind)}</td>
+      <td><span class="badge ${bc}">${bl}</span></td>
+      <td style="font-size:11px;color:var(--text3)">${r.obs}</td>
+      <td><button class="btn btn-sm" onclick="editarRes(${r.ind.id},${r.mes})">${icnEdit()}</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function editarRes(indId,mes){
+  const val=(DB.resultados[indId]||[])[mes];
+  const obs=(DB.obs[indId]||{})[mes]||'';
+  const nv=prompt(`Nuevo valor para ${MESES[mes]}:`,val??'');
+  if(nv===null)return;
+  const parsed=parseFloat(nv);
+  if(isNaN(parsed)){alert('Valor inválido.');return;}
+  if(!DB.resultados[indId])DB.resultados[indId]=Array(12).fill(null);
+  DB.resultados[indId][mes]=parsed;
+  save();toast('Actualizado ✓');renderHistorial();updateDots();
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+load();
+renderProcess('PREANALÍTICO','preana');
+updateDots();
+</script>
+</body>
+</html>
